@@ -88,34 +88,37 @@ resource "aws_autoscaling_group" "not_scheduled" {
 
 ### Terraform modules ###
 
-module "autoscaling-stop-friday" {
-  source                         = "../../"
-  name                           = "stop-autoscaling"
-  cloudwatch_schedule_expression = "cron(0 23 ? * FRI *)"
-  schedule_action                = "stop"
-  ec2_schedule                   = "false"
-  rds_schedule                   = "false"
-  autoscaling_schedule           = "true"
-  cloudwatch_alarm_schedule      = "true"
-
-  scheduler_tag = {
-    key   = "tostop"
-    value = "true"
-  }
-}
-
-module "autoscaling-start-monday" {
-  source                         = "../../"
-  name                           = "start-autoscaling"
-  cloudwatch_schedule_expression = "cron(0 07 ? * MON *)"
-  schedule_action                = "start"
-  ec2_schedule                   = "false"
-  rds_schedule                   = "false"
-  autoscaling_schedule           = "true"
-  cloudwatch_alarm_schedule      = "true"
-
-  scheduler_tag = {
-    key   = "tostop"
-    value = "true"
-  }
+module "autoscaling-stop-start" {
+  source = "../../"
+  name   = "autoscaling-stop-start"
+  schedules = [
+    {
+      name                           = "stop-friday-23"
+      aws_regions                    = ["us-east-2"]
+      cloudwatch_schedule_expression = "cron(0 23 ? * FRI *)"
+      schedule_action                = "stop"
+      autoscaling_schedule           = "true"
+      ec2_schedule                   = "false"
+      rds_schedule                   = "false"
+      cloudwatch_alarm_schedule      = "true"
+      scheduler_tag = {
+        key   = "tostop"
+        value = "true"
+      } 
+    },
+    {
+      name                           = "start-monday-7"
+      aws_regions                    = ["us-east-2"]
+      cloudwatch_schedule_expression = "cron(0 07 ? * MON *)"
+      schedule_action                = "start"
+      autoscaling_schedule           = "true"
+      ec2_schedule                   = "false"
+      rds_schedule                   = "false"
+      cloudwatch_alarm_schedule      = "true"
+      scheduler_tag = {
+        key   = "tostop"
+        value = "true"
+      } 
+    },
+  ]
 }

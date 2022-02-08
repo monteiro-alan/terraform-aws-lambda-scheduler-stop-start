@@ -36,35 +36,37 @@ resource "aws_instance" "not_scheduled" {
 
 
 ### Terraform modules ###
-
-module "ec2-stop-friday" {
-  source                         = "../../"
-  name                           = "stop-ec2"
-  cloudwatch_schedule_expression = "cron(0 23 ? * FRI *)"
-  schedule_action                = "stop"
-  ec2_schedule                   = "true"
-  rds_schedule                   = "false"
-  autoscaling_schedule           = "false"
-  cloudwatch_alarm_schedule      = "true"
-
-  scheduler_tag = {
-    key   = "tostop"
-    value = "true"
-  }
-}
-
-module "ec2-start-monday" {
-  source                         = "../../"
-  name                           = "start-ec2"
-  cloudwatch_schedule_expression = "cron(0 07 ? * MON *)"
-  schedule_action                = "start"
-  ec2_schedule                   = "true"
-  rds_schedule                   = "false"
-  autoscaling_schedule           = "false"
-  cloudwatch_alarm_schedule      = "true"
-
-  scheduler_tag = {
-    key   = "tostop"
-    value = "true"
-  }
+module "ec2-stop-start" {
+  source = "../../"
+  name   = "ec2-stop-start"
+  schedules = [
+    {
+      name                           = "stop-friday-23"
+      aws_regions                    = ["us-east-2"]
+      cloudwatch_schedule_expression = "cron(0 23 ? * FRI *)"
+      schedule_action                = "stop"
+      autoscaling_schedule           = "false"
+      ec2_schedule                   = "true"
+      rds_schedule                   = "false"
+      cloudwatch_alarm_schedule      = "true"
+      scheduler_tag = {
+        key   = "tostop"
+        value = "true"
+      } 
+    },
+    {
+      name                           = "start-monday-7"
+      aws_regions                    = ["us-east-2"]
+      cloudwatch_schedule_expression = "cron(0 07 ? * MON *)"
+      schedule_action                = "start"
+      autoscaling_schedule           = "false"
+      ec2_schedule                   = "true"
+      rds_schedule                   = "false"
+      cloudwatch_alarm_schedule      = "true"
+      scheduler_tag = {
+        key   = "tostop"
+        value = "true"
+      } 
+    },
+  ]
 }

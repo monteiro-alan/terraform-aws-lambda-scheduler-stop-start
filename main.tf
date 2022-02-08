@@ -167,7 +167,7 @@ data "aws_iam_policy_document" "resource_groups_tagging_api" {
 
 resource "aws_iam_role_policy" "lambda_logging" {
   count  = var.custom_iam_role_arn == null ? 1 : 0
-  name   = "${var.name}-lambda-logging"
+  name   = "${var.name}-lambda-scheduler-logging"
   role   = aws_iam_role.this[0].id
   policy = var.kms_key_arn == null ? jsonencode(local.lambda_logging_policy) : jsonencode(local.lambda_logging_and_kms_policy)
 }
@@ -210,8 +210,6 @@ locals {
       }
     ]
   }
-  # Backward compatibility with the former scheduler variable name.
-  scheduler_tag = var.resources_tag == null ? var.scheduler_tag : var.resources_tag
 }
 
 ################################################
@@ -237,19 +235,6 @@ resource "aws_lambda_function" "this" {
   timeout       = "600"
   kms_key_arn   = var.kms_key_arn == null ? "" : var.kms_key_arn
 
-  environment {
-    variables = {
-      AWS_REGIONS               = var.aws_regions == null ? data.aws_region.current.name : join(", ", var.aws_regions)
-      SCHEDULE_ACTION           = var.schedule_action
-      TAG_KEY                   = local.scheduler_tag["key"]
-      TAG_VALUE                 = local.scheduler_tag["value"]
-      EC2_SCHEDULE              = tostring(var.ec2_schedule)
-      RDS_SCHEDULE              = tostring(var.rds_schedule)
-      AUTOSCALING_SCHEDULE      = tostring(var.autoscaling_schedule)
-      CLOUDWATCH_ALARM_SCHEDULE = tostring(var.cloudwatch_alarm_schedule)
-    }
-  }
-
   tags = var.tags
 }
 
@@ -260,23 +245,27 @@ resource "aws_lambda_function" "this" {
 ################################################
 
 resource "aws_cloudwatch_event_rule" "this" {
-  name                = "trigger-lambda-scheduler-${var.name}"
+  for_each            = { for event_rule in var.schedules_definitions : event_rule.name => event_rule }
+  name                = "trigger-lambda-scheduler-${each.value.name}"
   description         = "Trigger lambda scheduler"
-  schedule_expression = var.cloudwatch_schedule_expression
+  schedule_expression = each.value.cloudwatch_schedule_expression
   tags                = var.tags
 }
 
 resource "aws_cloudwatch_event_target" "this" {
-  arn  = aws_lambda_function.this.arn
-  rule = aws_cloudwatch_event_rule.this.name
+  for_each = { for event_rule in var.schedules_definitions : event_rule.name => event_rule }
+  arn      = aws_lambda_function.this.arn
+  rule     = "trigger-lambda-scheduler-${each.value.name}"
+  input    = jsonencode("${each.value}")
 }
 
 resource "aws_lambda_permission" "this" {
-  statement_id  = "AllowExecutionFromCloudWatch"
+  for_each      = aws_cloudwatch_event_rule.this
+  statement_id  = "AllowExecutionFromCloudWatch-${aws_cloudwatch_event_rule.this[each.key].name}"
   action        = "lambda:InvokeFunction"
   principal     = "events.amazonaws.com"
   function_name = aws_lambda_function.this.function_name
-  source_arn    = aws_cloudwatch_event_rule.this.arn
+  source_arn    = aws_cloudwatch_event_rule.this[each.key].arn
 }
 
 ################################################
